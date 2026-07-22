@@ -18,7 +18,7 @@
         </p>
         <div class="hero-actions">
             <a href="{{ url_for('register') }}" class="btn-primary">Create free account</a>
-            <a href="#features" class="btn-ghost">See how it works</a>
+            <a href="#features" class="btn-ghost" id="openVideoModal">See how it works</a>
         </div>
     </div>
     <div class="hero-visual">
@@ -96,5 +96,51 @@
         <a href="{{ url_for('register') }}" class="btn-primary">Create free account</a>
     </div>
 </section>
+
+<!-- Video Modal Overlay -->
+<div id="videoModal" class="video-modal-overlay">
+    <div class="video-modal-container">
+        <button type="button" id="closeVideoModal" class="video-modal-close" aria-label="Close modal">&times;</button>
+        <div class="video-wrapper">
+            <iframe id="demoVideoIframe" src="" data-src="https://www.youtube.com/embed/dQw4w9WgXcQ" title="Spendly Demo Video" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const openBtn = document.getElementById('openVideoModal');
+        const modal = document.getElementById('videoModal');
+        const closeBtn = document.getElementById('closeVideoModal');
+        const iframe = document.getElementById('demoVideoIframe');
+
+        if (openBtn && modal && iframe) {
+            openBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                modal.style.display = 'flex';
+                iframe.src = iframe.getAttribute('data-src');
+            });
+
+            const closeModal = () => {
+                modal.style.display = 'none';
+                iframe.src = '';
+            };
+
+            closeBtn.addEventListener('click', closeModal);
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.style.display === 'flex') {
+                    closeModal();
+                }
+            });
+        }
+    });
+</script>
 
 {% endblock %}
