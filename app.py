@@ -1,6 +1,7 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, session
 import sqlite3
-from database.db import get_db, init_db, seed_db, create_user
+from database.db import get_db, init_db, seed_db, create_user, get_user_by_email
+from werkzeug.security import check_password_hash
 
 app = Flask(__name__)
 app.secret_key = 'dev-secret-key-change-in-production'
@@ -21,6 +22,8 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    if "user_id" in session:
+        return redirect(url_for("landing"))
     if request.method == "GET":
         return render_template("register.html")
     elif request.method == "POST":
@@ -49,9 +52,31 @@ def register():
         abort(405)
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    return render_template("login.html")
+    if "user_id" in session:
+        return redirect(url_for("landing"))
+    if request.method == "GET":
+        return render_template("login.html")
+    elif request.method == "POST":
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+
+        if not email or not password:
+            flash("All fields are required.", "error")
+            return render_template("login.html")
+
+        user = get_user_by_email(email)
+        if not user or not check_password_hash(user["password_hash"], password):
+            flash("Invalid email or password.", "error")
+            return render_template("login.html")
+
+        session["user_id"] = user["id"]
+        session["user_name"] = user["name"]
+        flash(f"Welcome back, {user['name']}!", "success")
+        return redirect(url_for("landing"))
+    else:
+        abort(405)
 
 
 @app.route("/terms")
@@ -70,7 +95,9 @@ def privacy():
 
 @app.route("/logout")
 def logout():
-    return "Logout — coming in Step 3"
+    session.clear()
+    flash("You have been signed out.", "success")
+    return redirect(url_for("landing"))
 
 
 @app.route("/profile")
