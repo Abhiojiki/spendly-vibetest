@@ -47,6 +47,19 @@ def create_user(name, email, password):
     ''', (name, email, password_hash))
     conn.commit()
     user_id = cursor.lastrowid
+
+    # Prepopulate with static dummy expense data for new users
+    sample_expenses = [
+        (user_id, 24.50, 'Food', '2026-07-20', 'Artisan coffee & brunch'),
+        (user_id, 55.00, 'Transport', '2026-07-21', 'Monthly transit pass'),
+        (user_id, 120.00, 'Bills', '2026-07-22', 'Fiber broadband internet'),
+        (user_id, 85.00, 'Shopping', '2026-07-22', 'Books and stationery')
+    ]
+    cursor.executemany('''
+        INSERT INTO expenses (user_id, amount, category, date, description)
+        VALUES (?, ?, ?, ?, ?)
+    ''', sample_expenses)
+    conn.commit()
     conn.close()
     return user_id
 
@@ -57,6 +70,70 @@ def get_user_by_email(email):
     user = cursor.fetchone()
     conn.close()
     return user
+
+def get_user_by_id(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, name, email, created_at FROM users WHERE id = ?', (user_id,))
+    user = cursor.fetchone()
+    conn.close()
+    return user
+
+def get_user_expense_stats(user_id):
+    conn = get_db()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        SELECT COALESCE(SUM(amount), 0.0) as total_spent, COUNT(*) as expense_count
+        FROM expenses WHERE user_id = ?
+    ''', (user_id,))
+    stats = cursor.fetchone()
+
+    if stats["expense_count"] == 0:
+        # Prepopulate with static dummy expense data if none exist
+        sample_expenses = [
+            (user_id, 24.50, 'Food', '2026-07-20', 'Artisan coffee & brunch'),
+            (user_id, 55.00, 'Transport', '2026-07-21', 'Monthly transit pass'),
+            (user_id, 120.00, 'Bills', '2026-07-22', 'Fiber broadband internet'),
+            (user_id, 85.00, 'Shopping', '2026-07-22', 'Books and stationery'),
+            (user_id, 40.00, 'Entertainment', '2026-07-23', 'Movie tickets')
+        ]
+        cursor.executemany('''
+            INSERT INTO expenses (user_id, amount, category, date, description)
+            VALUES (?, ?, ?, ?, ?)
+        ''', sample_expenses)
+        conn.commit()
+
+        cursor.execute('''
+            SELECT COALESCE(SUM(amount), 0.0) as total_spent, COUNT(*) as expense_count
+            FROM expenses WHERE user_id = ?
+        ''', (user_id,))
+        stats = cursor.fetchone()
+
+    cursor.execute('''
+        SELECT category, SUM(amount) as total, COUNT(*) as count
+        FROM expenses WHERE user_id = ?
+        GROUP BY category
+        ORDER BY total DESC
+    ''', (user_id,))
+    categories = cursor.fetchall()
+
+    cursor.execute('''
+        SELECT id, amount, category, date, description
+        FROM expenses WHERE user_id = ?
+        ORDER BY date DESC, id DESC
+        LIMIT 10
+    ''', (user_id,))
+    recent_expenses = cursor.fetchall()
+
+    conn.close()
+
+    return {
+        "total_spent": stats["total_spent"],
+        "expense_count": stats["expense_count"],
+        "categories": categories,
+        "recent_expenses": recent_expenses
+    }
 
 def seed_db():
     conn = get_db()
